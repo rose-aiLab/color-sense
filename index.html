@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>调色眼 · 色感训练</title>
+<meta name="description" content="通过猜测颜色混合结果来训练色感的小游戏，适合绘画与设计爱好者。">
+<style>
+  /* ---- 设计基调：中性灰环境，如同专业看色房，让颜色本身成为主角 ---- */
+  :root{
+    --bg:#e8e8e6;
+    --card:#ffffff;
+    --ink:#1c1c1a;
+    --ink-soft:#6b6b66;
+    --line:#d4d4d0;
+    --focus:#1c1c1a;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.07);
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"PingFang SC","Hiragino Sans GB","Noto Sans SC","Microsoft YaHei",system-ui,sans-serif;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+    display:flex; flex-direction:column; align-items:center;
+    padding:24px 16px 64px;
+  }
+  .wrap{width:100%; max-width:680px;}
+
+  /* ---- 头部 ---- */
+  header{display:flex; align-items:baseline; justify-content:space-between; margin-bottom:20px;}
+  .logo{font-size:26px; font-weight:700; letter-spacing:.06em;}
+  .logo .dot{display:inline-block; width:.55em; height:.55em; border-radius:50%; margin:0 .18em;
+    background:conic-gradient(#e0483e,#e8a13a,#3f8f4f,#3268c2,#8a4fb0,#e0483e); vertical-align:baseline;}
+  .sub{font-size:13px; color:var(--ink-soft);}
+
+  .card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:28px; margin-bottom:16px;}
+
+  /* ---- 开始页 ---- */
+  .intro h1{font-size:22px; margin-bottom:10px;}
+  .intro p{color:var(--ink-soft); font-size:15px; margin-bottom:18px;}
+  .opt-group{margin-bottom:18px;}
+  .opt-label{font-size:13px; color:var(--ink-soft); margin-bottom:8px; display:block;}
+  .seg{display:flex; border:1.5px solid var(--ink); border-radius:10px; overflow:hidden; width:fit-content;}
+  .seg button{
+    appearance:none; border:none; background:transparent; color:var(--ink);
+    font-size:14px; padding:8px 18px; cursor:pointer; font-family:inherit;
+  }
+  .seg button[aria-pressed="true"]{background:var(--ink); color:#fff;}
+  .seg button:focus-visible{outline:2px solid var(--focus); outline-offset:-2px;}
+  .hint{font-size:12.5px; color:var(--ink-soft); margin-top:6px;}
+
+  .btn{
+    appearance:none; border:none; cursor:pointer; font-family:inherit;
+    background:var(--ink); color:#fff; font-size:16px; font-weight:600;
+    padding:12px 32px; border-radius:12px;
+  }
+  .btn:hover{opacity:.88;}
+  .btn:focus-visible{outline:3px solid var(--focus); outline-offset:3px;}
+  .btn.ghost{background:transparent; color:var(--ink); border:1.5px solid var(--ink);}
+
+  /* ---- 题目区 ---- */
+  .qhead{display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; font-size:14px; color:var(--ink-soft);}
+  .qhead b{color:var(--ink);}
+
+  .mix-stage{display:flex; align-items:center; gap:14px; flex-wrap:wrap; justify-content:center; margin-bottom:6px;}
+  .swatch-src{text-align:center;}
+  .swatch-src .chip{width:88px; height:88px; border-radius:12px; border:1px solid rgba(0,0,0,.12);}
+  .swatch-src .pct{font-size:15px; font-weight:700; margin-top:6px;}
+  .plus,.eq{font-size:22px; color:var(--ink-soft);}
+  .mystery{
+    width:88px; height:88px; border-radius:12px; border:2px dashed var(--ink-soft);
+    display:flex; align-items:center; justify-content:center; font-size:30px; color:var(--ink-soft); font-weight:700;
+    background:repeating-conic-gradient(#f2f2f0 0% 25%, #e4e4e1 0% 50%) 0 0/20px 20px;
+  }
+  .mystery.reveal{border-style:solid; border-color:rgba(0,0,0,.15); color:transparent;}
+
+  /* 招牌元素：比例混合条 */
+  .ratio-bar{display:flex; height:16px; border-radius:8px; overflow:hidden; margin:16px auto 22px; max-width:420px; border:1px solid rgba(0,0,0,.12);}
+  .ratio-bar div{height:100%;}
+
+  .prompt{text-align:center; font-size:15px; margin-bottom:14px;}
+
+  .palette{display:grid; grid-template-columns:repeat(6,1fr); gap:8px;}
+  @media (max-width:480px){ .palette{grid-template-columns:repeat(4,1fr);} }
+  .palette button{
+    appearance:none; border:1px solid rgba(0,0,0,.12); cursor:pointer;
+    aspect-ratio:1/1; border-radius:9px; padding:0; position:relative;
+  }
+  .palette button:hover{transform:scale(1.06);}
+  .palette button:focus-visible{outline:3px solid var(--focus); outline-offset:2px;}
+  .palette button:disabled{cursor:default; transform:none;}
+  .palette button.picked::after,
+  .palette button.truth::after{
+    position:absolute; inset:auto auto -22px 50%; transform:translateX(-50%);
+    font-size:11px; white-space:nowrap; color:var(--ink); font-weight:600;
+  }
+  .palette button.picked{box-shadow:0 0 0 3px var(--ink);}
+  .palette button.picked::after{content:"你的选择";}
+  .palette button.truth{box-shadow:0 0 0 3px #fff, 0 0 0 5.5px var(--ink);}
+  .palette button.truth::after{content:"正确答案";}
+  .palette button.picked.truth::after{content:"完全正确！";}
+  .palette.answered{margin-bottom:26px;}
+
+  /* ---- 反馈 ---- */
+  .feedback{margin-top:22px; border-top:1px solid var(--line); padding-top:18px; display:flex; align-items:center; gap:18px; flex-wrap:wrap;}
+  .fb-score{font-size:40px; font-weight:800; line-height:1;}
+  .fb-score small{font-size:14px; font-weight:500; color:var(--ink-soft); display:block; margin-top:4px;}
+  .fb-text{font-size:14px; color:var(--ink-soft); flex:1; min-width:200px;}
+  .fb-text b{color:var(--ink);}
+  .nextrow{margin-top:20px; text-align:right;}
+
+  /* ---- 结算页 ---- */
+  .result h2{font-size:20px; margin-bottom:4px;}
+  .grade{font-size:34px; font-weight:800; margin:10px 0 2px;}
+  .avg{font-size:14px; color:var(--ink-soft); margin-bottom:18px;}
+  .chart-title{font-size:13px; color:var(--ink-soft); margin:18px 0 8px;}
+  .chart{width:100%; height:120px; background:#fafaf8; border:1px solid var(--line); border-radius:10px;}
+  .endbtns{display:flex; gap:12px; margin-top:22px; flex-wrap:wrap;}
+
+  footer{font-size:12px; color:var(--ink-soft); text-align:center; margin-top:8px;}
+
+  @media (prefers-reduced-motion:no-preference){
+    .card{animation:rise .35s ease both;}
+    @keyframes rise{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+  }
+  .hidden{display:none !important;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">调<span class="dot" aria-hidden="true"></span>色<span class="dot" aria-hidden="true"></span>眼</div>
+    <div class="sub">色感基础训练</div>
+  </header>
+
+  <!-- 开始页 -->
+  <section class="card intro" id="viewStart">
+    <h1>猜一猜：混出来是什么颜色？</h1>
+    <p>屏幕会给出几种颜色和各自的比例。先在心里想象混合后的结果，再从调色板中选出最接近的一格。每局 10 题，坚持练习，你的色感会稳步提升。</p>
+
+    <div class="opt-group">
+      <span class="opt-label">混合数量</span>
+      <div class="seg" role="group" aria-label="混合数量">
+        <button type="button" data-opt="count" data-val="2" aria-pressed="true">双色混合</button>
+        <button type="button" data-opt="count" data-val="3" aria-pressed="false">三色混合</button>
+      </div>
+    </div>
+
+    <div class="opt-group">
+      <span class="opt-label">混合方式</span>
+      <div class="seg" role="group" aria-label="混合方式">
+        <button type="button" data-opt="model" data-val="paint" aria-pressed="true">颜料混合</button>
+        <button type="button" data-opt="model" data-val="light" aria-pressed="false">光色混合</button>
+      </div>
+      <p class="hint" id="modelHint">颜料混合：像调水彩、丙烯一样，蓝 + 黄 = 绿（减色法）。</p>
+    </div>
+
+    <button class="btn" id="btnStart">开始训练</button>
+  </section>
+
+  <!-- 答题页 -->
+  <section class="card hidden" id="viewQuiz">
+    <div class="qhead">
+      <span>第 <b id="qNum">1</b> / 10 题</span>
+      <span id="qMode"></span>
+      <span>累计 <b id="qScore">0</b> 分</span>
+    </div>
+
+    <div class="mix-stage" id="mixStage"></div>
+    <div class="ratio-bar" id="ratioBar" aria-hidden="true"></div>
+
+    <p class="prompt" id="promptText">按上面的比例混合后，会得到哪个颜色？</p>
+    <div class="palette" id="palette"></div>
+
+    <div class="feedback hidden" id="feedback">
+      <div class="fb-score"><span id="fbPts">0</span><small>本题得分</small></div>
+      <p class="fb-text" id="fbText"></p>
+    </div>
+    <div class="nextrow hidden" id="nextRow">
+      <button class="btn" id="btnNext">下一题</button>
+    </div>
+  </section>
+
+  <!-- 结算页 -->
+  <section class="card result hidden" id="viewResult">
+    <h2>本局结束</h2>
+    <div class="grade" id="gradeText"></div>
+    <div class="avg" id="avgText"></div>
+    <div class="chart-title">历史成绩曲线（平均分 / 局）</div>
+    <svg class="chart" id="chart" viewBox="0 0 600 120" preserveAspectRatio="none" role="img" aria-label="历史成绩曲线"></svg>
+    <div class="endbtns">
+      <button class="btn" id="btnAgain">再来一局</button>
+      <button class="btn ghost" id="btnHome">调整设置</button>
+    </div>
+  </section>
+
+  <footer>提示：颜色判断受屏幕影响，建议调至适中亮度、关闭护眼滤镜后练习。</footer>
+</div>
+
+<script>
+"use strict";
+/* ================= 颜色数学 ================= */
+const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+
+function srgbToLinear(c){ return c<=0.04045 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4); }
+function linearToSrgb(c){ c=clamp(c,0,1); return c<=0.0031308 ? 12.92*c : 1.055*Math.pow(c,1/2.4)-0.055; }
+
+function rgbToLab(rgb){ // rgb: [0,1] sRGB
+  const [r,g,b]=rgb.map(srgbToLinear);
+  // D65
+  let X=r*0.4124564+g*0.3575761+b*0.1804375;
+  let Y=r*0.2126729+g*0.7151522+b*0.0721750;
+  let Z=r*0.0193339+g*0.1191920+b*0.9503041;
+  const xn=0.95047, yn=1.0, zn=1.08883;
+  const f=t=> t>0.008856 ? Math.cbrt(t) : (7.787*t + 16/116);
+  const fx=f(X/xn), fy=f(Y/yn), fz=f(Z/zn);
+  return [116*fy-16, 500*(fx-fy), 200*(fy-fz)];
+}
+
+function labToRgb(lab){
+  const [L,a,bb]=lab;
+  const fy=(L+16)/116, fx=fy+a/500, fz=fy-bb/200;
+  const inv=t=>{ const t3=t*t*t; return t3>0.008856 ? t3 : (t-16/116)/7.787; };
+  const X=inv(fx)*0.95047, Y=inv(fy)*1.0, Z=inv(fz)*1.08883;
+  let r= X* 3.2404542 + Y*-1.5371385 + Z*-0.4985314;
+  let g= X*-0.9692660 + Y* 1.8760108 + Z* 0.0415560;
+  let b= X* 0.0556434 + Y*-0.2040259 + Z* 1.0572252;
+  return [r,g,b].map(linearToSrgb);
+}
+const inGamut=rgb=>rgb.every(c=>c>=-0.001&&c<=1.001);
+
+/* CIEDE2000 色差 */
+function deltaE00(lab1,lab2){
+  const [L1,a1,b1]=lab1,[L2,a2,b2]=lab2;
+  const rad=Math.PI/180, deg=180/Math.PI;
+  const C1=Math.hypot(a1,b1), C2=Math.hypot(a2,b2), Cm=(C1+C2)/2;
+  const G=0.5*(1-Math.sqrt(Math.pow(Cm,7)/(Math.pow(Cm,7)+Math.pow(25,7))));
+  const a1p=a1*(1+G), a2p=a2*(1+G);
+  const C1p=Math.hypot(a1p,b1), C2p=Math.hypot(a2p,b2);
+  const h=(a,b)=>{ if(a===0&&b===0) return 0; let t=Math.atan2(b,a)*deg; return t<0?t+360:t; };
+  const h1p=h(a1p,b1), h2p=h(a2p,b2);
+  const dLp=L2-L1, dCp=C2p-C1p;
+  let dhp=0;
+  if(C1p*C2p!==0){
+    dhp=h2p-h1p;
+    if(dhp>180)dhp-=360; else if(dhp<-180)dhp+=360;
+  }
+  const dHp=2*Math.sqrt(C1p*C2p)*Math.sin(dhp/2*rad);
+  const Lpm=(L1+L2)/2, Cpm=(C1p+C2p)/2;
+  let hpm;
+  if(C1p*C2p===0) hpm=h1p+h2p;
+  else{
+    hpm=(h1p+h2p)/2;
+    if(Math.abs(h1p-h2p)>180) hpm += (h1p+h2p<360)?180:-180;
+  }
+  const T=1-0.17*Math.cos((hpm-30)*rad)+0.24*Math.cos(2*hpm*rad)+0.32*Math.cos((3*hpm+6)*rad)-0.20*Math.cos((4*hpm-63)*rad);
+  const dTheta=30*Math.exp(-Math.pow((hpm-275)/25,2));
+  const Rc=2*Math.sqrt(Math.pow(Cpm,7)/(Math.pow(Cpm,7)+Math.pow(25,7)));
+  const Sl=1+0.015*Math.pow(Lpm-50,2)/Math.sqrt(20+Math.pow(Lpm-50,2));
+  const Sc=1+0.045*Cpm, Sh=1+0.015*Cpm*T;
+  const Rt=-Math.sin(2*dTheta*rad)*Rc;
+  return Math.sqrt(Math.pow(dLp/Sl,2)+Math.pow(dCp/Sc,2)+Math.pow(dHp/Sh,2)+Rt*(dCp/Sc)*(dHp/Sh));
+}
+
+/* HSL -> RGB（生成题目基色用） */
+function hslToRgb(h,s,l){
+  const f=n=>{ const k=(n+h/30)%12; return l - s*Math.min(l,1-l)*Math.max(-1,Math.min(k-3,Math.min(9-k,1))); };
+  return [f(0),f(8),f(4)];
+}
+const rgbCss=rgb=>`rgb(${rgb.map(c=>Math.round(clamp(c,0,1)*255)).join(",")})`;
+
+/* ---- 混合模型 ---- */
+// 颜料（减色法）：逐通道简化 Kubelka-Munk
+function mixPaint(colors,weights){
+  const out=[0,0,0];
+  for(let ch=0;ch<3;ch++){
+    let ks=0;
+    for(let i=0;i<colors.length;i++){
+      const R=clamp(srgbToLinear(colors[i][ch]),0.0008,0.9992);
+      ks += weights[i]*((1-R)*(1-R))/(2*R);
+    }
+    const R=1+ks-Math.sqrt(ks*ks+2*ks);
+    out[ch]=linearToSrgb(R);
+  }
+  return out;
+}
+// 光色（加色法）：线性空间加权平均
+function mixLight(colors,weights){
+  const out=[0,0,0];
+  for(let ch=0;ch<3;ch++){
+    let v=0;
+    for(let i=0;i<colors.length;i++) v+=weights[i]*srgbToLinear(colors[i][ch]);
+    out[ch]=linearToSrgb(v);
+  }
+  return out;
+}
+
+/* ================= 题目生成 ================= */
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const rndInt=(a,b)=>Math.floor(rnd(a,b+1));
+
+function randomBaseColor(){
+  return hslToRgb(rnd(0,360), rnd(0.5,0.95), rnd(0.32,0.68));
+}
+
+function genQuestion(count,model){
+  // 生成互相区分度足够的基色
+  let colors;
+  for(let tries=0;tries<200;tries++){
+    colors=Array.from({length:count},randomBaseColor);
+    const labs=colors.map(rgbToLab);
+    let ok=true;
+    for(let i=0;i<count&&ok;i++)for(let j=i+1;j<count;j++)
+      if(deltaE00(labs[i],labs[j])<28){ok=false;break;}
+    if(ok)break;
+  }
+  // 比例：10% 步进，每色至少 20%
+  let weights;
+  if(count===2){
+    const p=rndInt(2,8)*10;
+    weights=[p/100,(100-p)/100];
+  }else{
+    while(true){
+      const a=rndInt(2,6)*10, b=rndInt(2,6)*10, c=100-a-b;
+      if(c>=20&&c<=60){weights=[a/100,b/100,c/100];break;}
+    }
+  }
+  const truth=(model==="paint"?mixPaint:mixLight)(colors,weights);
+  const palette=genPalette(truth);
+  return {colors,weights,truth,palette};
+}
+
+// 24 格调色板：正确答案 + 不同难度的干扰色
+function genPalette(truth){
+  const truthLab=rgbToLab(truth);
+  const targets=[...Array(7).fill(0).map(()=>rnd(3,7)),
+                 ...Array(8).fill(0).map(()=>rnd(8,15)),
+                 ...Array(5).fill(0).map(()=>rnd(17,27)),
+                 ...Array(3).fill(0).map(()=>rnd(30,45))];
+  const out=[{rgb:truth,de:0,isTruth:true}];
+  for(const target of targets){
+    for(let t=0;t<300;t++){
+      // Lab 空间中随机方向偏移
+      let v=[rnd(-1,1)*0.9, rnd(-1,1), rnd(-1,1)];
+      const n=Math.hypot(...v); if(n<1e-6)continue;
+      v=v.map(x=>x/n*target);
+      const lab=[truthLab[0]+v[0], truthLab[1]+v[1], truthLab[2]+v[2]];
+      const rgb=labToRgb(lab);
+      if(!inGamut(rgb))continue;
+      const c=rgb.map(x=>clamp(x,0,1));
+      const de=deltaE00(truthLab,rgbToLab(c));
+      if(de<2)continue;
+      if(out.some(o=>deltaE00(rgbToLab(o.rgb),rgbToLab(c))<2.2))continue;
+      out.push({rgb:c,de,isTruth:false});
+      break;
+    }
+  }
+  // 打乱
+  for(let i=out.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[out[i],out[j]]=[out[j],out[i]];}
+  return out;
+}
+
+/* ================= 打分 ================= */
+function scoreFromDE(de){
+  if(de<=1.8) return 100;                    // 人眼几乎无法分辨
+  return Math.max(0, Math.round(100-(de-1.8)*3.2));
+}
+function commentFromDE(de){
+  if(de<=1.8)  return "完美！你选中的颜色与真实结果几乎无法分辨。";
+  if(de<=6)    return "非常接近，只差一点点微调，色感很敏锐。";
+  if(de<=13)   return "方向对了，但明度或饱和度略有偏差，多留意混合后的深浅变化。";
+  if(de<=25)   return "有明显偏差。想一想：占比更大的颜色会把结果“拉”向哪边？";
+  return "偏差较大。建议先观察两个基色的深浅关系，再判断混合结果。";
+}
+
+/* ================= 本地存档 ================= */
+const store={
+  read(){ try{ return JSON.parse(localStorage.getItem("tsy_history")||"[]"); }catch(e){ return this._m||[]; } },
+  write(arr){ try{ localStorage.setItem("tsy_history",JSON.stringify(arr)); }catch(e){ this._m=arr; } }
+};
+
+/* ================= 界面状态 ================= */
+const $=id=>document.getElementById(id);
+const settings={count:2, model:"paint"};
+const TOTAL=10;
+let session=null;
+
+document.querySelectorAll(".seg button").forEach(btn=>{
+  btn.addEventListener("click",()=>{
+    const {opt,val}=btn.dataset;
+    settings[opt]= opt==="count" ? Number(val) : val;
+    btn.parentElement.querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed", b===btn?"true":"false"));
+    if(opt==="model"){
+      $("modelHint").textContent = val==="paint"
+        ? "颜料混合：像调水彩、丙烯一样，蓝 + 黄 = 绿（减色法）。"
+        : "光色混合：像舞台灯光叠加，蓝 + 黄 = 偏灰白（加色法）。";
+    }
+  });
+});
+
+function show(view){
+  ["viewStart","viewQuiz","viewResult"].forEach(v=>$(v).classList.toggle("hidden",v!==view));
+}
+
+$("btnStart").addEventListener("click",startSession);
+$("btnAgain").addEventListener("click",startSession);
+$("btnHome").addEventListener("click",()=>show("viewStart"));
+$("btnNext").addEventListener("click",nextQuestion);
+
+function startSession(){
+  session={idx:0, total:0, count:settings.count, model:settings.model};
+  show("viewQuiz");
+  renderQuestion();
+}
+
+function renderQuestion(){
+  const q=genQuestion(session.count,session.model);
+  session.q=q;
+  $("qNum").textContent=session.idx+1;
+  $("qScore").textContent=session.total;
+  $("qMode").textContent=(session.count===2?"双色":"三色")+" · "+(session.model==="paint"?"颜料":"光色");
+
+  // 基色 + 神秘结果
+  const stage=$("mixStage");
+  stage.innerHTML="";
+  q.colors.forEach((c,i)=>{
+    if(i>0){ const p=document.createElement("span"); p.className="plus"; p.textContent="+"; stage.appendChild(p); }
+    const d=document.createElement("div");
+    d.className="swatch-src";
+    d.innerHTML=`<div class="chip" style="background:${rgbCss(c)}"></div><div class="pct">${Math.round(q.weights[i]*100)}%</div>`;
+    stage.appendChild(d);
+  });
+  const eq=document.createElement("span"); eq.className="eq"; eq.textContent="="; stage.appendChild(eq);
+  const myst=document.createElement("div"); myst.className="mystery"; myst.id="mystery"; myst.textContent="?";
+  stage.appendChild(myst);
+
+  // 比例条
+  const bar=$("ratioBar");
+  bar.innerHTML="";
+  q.colors.forEach((c,i)=>{
+    const seg=document.createElement("div");
+    seg.style.width=(q.weights[i]*100)+"%";
+    seg.style.background=rgbCss(c);
+    bar.appendChild(seg);
+  });
+
+  // 调色板
+  const pal=$("palette");
+  pal.innerHTML=""; pal.classList.remove("answered");
+  q.palette.forEach((item,i)=>{
+    const b=document.createElement("button");
+    b.type="button";
+    b.style.background=rgbCss(item.rgb);
+    b.setAttribute("aria-label","候选颜色 "+(i+1));
+    b.addEventListener("click",()=>answer(item,b));
+    pal.appendChild(b);
+  });
+
+  $("feedback").classList.add("hidden");
+  $("nextRow").classList.add("hidden");
+  $("promptText").textContent="按上面的比例混合后，会得到哪个颜色？";
+}
+
+function answer(item,btn){
+  const q=session.q;
+  const de=item.isTruth?0:deltaE00(rgbToLab(q.truth),rgbToLab(item.rgb));
+  const pts=scoreFromDE(de);
+  session.total+=pts;
+  $("qScore").textContent=session.total;
+
+  // 锁定并标注
+  const pal=$("palette");
+  pal.classList.add("answered");
+  pal.querySelectorAll("button").forEach(b=>b.disabled=true);
+  btn.classList.add("picked");
+  const truthIdx=q.palette.findIndex(p=>p.isTruth);
+  pal.children[truthIdx].classList.add("truth");
+
+  // 揭晓
+  const myst=$("mystery");
+  myst.classList.add("reveal");
+  myst.style.background=rgbCss(q.truth);
+
+  $("fbPts").textContent=pts;
+  $("fbText").innerHTML=`色差 ΔE00 = <b>${de.toFixed(1)}</b>。${commentFromDE(de)}`;
+  $("feedback").classList.remove("hidden");
+  $("nextRow").classList.remove("hidden");
+  $("btnNext").textContent = session.idx===TOTAL-1 ? "查看成绩" : "下一题";
+  $("btnNext").focus();
+  $("promptText").textContent="正确答案已揭晓：";
+}
+
+function nextQuestion(){
+  session.idx++;
+  if(session.idx>=TOTAL){ finishSession(); return; }
+  renderQuestion();
+}
+
+function finishSession(){
+  const avg=Math.round(session.total/TOTAL);
+  const hist=store.read();
+  hist.push({t:Date.now(), count:session.count, model:session.model, avg});
+  store.write(hist);
+
+  let grade;
+  if(avg>=90)grade="色感大师 🎨";
+  else if(avg>=75)grade="非常出色";
+  else if(avg>=60)grade="不错，继续保持";
+  else grade="多练几局，进步会很明显";
+  $("gradeText").textContent=grade;
+  $("avgText").textContent=`平均 ${avg} 分（共 ${TOTAL} 题，总分 ${session.total}） · ${session.count===2?"双色":"三色"} · ${session.model==="paint"?"颜料混合":"光色混合"}`;
+  drawChart(hist);
+  show("viewResult");
+}
+
+function drawChart(hist){
+  const svg=$("chart");
+  const data=hist.slice(-20).map(h=>h.avg);
+  svg.innerHTML="";
+  const W=600,H=120,pad=14;
+  // 参考线
+  [25,50,75,100].forEach(v=>{
+    const y=H-pad-(v/100)*(H-2*pad);
+    svg.innerHTML+=`<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e2de" stroke-width="1"/>`;
+  });
+  if(data.length===0)return;
+  const step=data.length>1?(W-2*pad)/(data.length-1):0;
+  const pts=data.map((v,i)=>{
+    const x=data.length>1? pad+i*step : W/2;
+    const y=H-pad-(v/100)*(H-2*pad);
+    return [x,y];
+  });
+  if(pts.length>1){
+    svg.innerHTML+=`<polyline points="${pts.map(p=>p.join(",")).join(" ")}" fill="none" stroke="#1c1c1a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  pts.forEach(([x,y],i)=>{
+    const last=i===pts.length-1;
+    svg.innerHTML+=`<circle cx="${x}" cy="${y}" r="${last?5:3.5}" fill="${last?"#1c1c1a":"#fff"}" stroke="#1c1c1a" stroke-width="2"/>`;
+  });
+}
+</script>
+</body>
+</html>
